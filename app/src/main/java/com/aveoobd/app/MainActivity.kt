@@ -20,6 +20,7 @@ class MainActivity : Activity() {
     private lateinit var prefs: Prefs
     private var devices: List<BluetoothDevice> = emptyList()
     private lateinit var spinner: Spinner
+    private lateinit var tvStatsBox: TextView
 
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,7 +39,7 @@ class MainActivity : Activity() {
         scroll.addView(root)
 
         fun title(t: String) = TextView(this).apply {
-            text = t; textSize = 18f; setTextColor(Color.parseColor("#00E5FF")); setPadding(0, 18, 0, 8)
+            text = t; textSize = 18f; setTextColor(Color.parseColor("#00E5FF")); setPadding(0, 20, 0, 8)
         }
 
         fun label(t: String) = TextView(this).apply {
@@ -70,8 +71,18 @@ class MainActivity : Activity() {
         btBtnRow.addView(btnBtSettings); btBtnRow.addView(btnRefresh)
         root.addView(btBtnRow)
 
+        // Otomatik Başlatma Anahtarı
+        val swBoot = Switch(this).apply {
+            text = "TS10 Açıldığında Sağ Paneli Otomatik Başlat"
+            setTextColor(Color.WHITE)
+            isChecked = prefs.autoStart
+            setPadding(0, 10, 0, 10)
+            setOnCheckedChangeListener { _, checked -> prefs.autoStart = checked }
+        }
+        root.addView(swBoot)
+
         // Başlat / Durdur
-        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 12, 0, 12) }
+        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 8, 0, 12) }
         val btnStart = Button(this).apply {
             text = "BAĞLAN VE SAĞ PANELİ BAŞLAT"
             setBackgroundColor(Color.parseColor("#00E676")); setTextColor(Color.BLACK)
@@ -93,6 +104,35 @@ class MainActivity : Activity() {
         }
         btnRow.addView(btnStart); btnRow.addView(btnStop)
         root.addView(btnRow)
+
+        // İSTATİSTİKLER ALANI (Min/Max, Günlük, Aylık)
+        root.addView(title("Sürüş İstatistikleri (Min / Max, Günlük & Aylık)"))
+        tvStatsBox = TextView(this).apply {
+            textSize = 13f
+            setTextColor(Color.parseColor("#E2E8F0"))
+            setBackgroundColor(Color.parseColor("#1E293B"))
+            setPadding(20, 16, 20, 16)
+        }
+        root.addView(tvStatsBox)
+        refreshStatsView()
+
+        val statBtnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 8, 0, 12) }
+        val btnStatRefresh = Button(this).apply {
+            text = "İSTATİSTİKLERİ YENİLE"
+            setBackgroundColor(Color.parseColor("#0288D1")); setTextColor(Color.WHITE)
+            setOnClickListener { refreshStatsView() }
+        }
+        val btnStatReset = Button(this).apply {
+            text = "İSTATİSTİKLERİ SIFIRLA"
+            setBackgroundColor(Color.parseColor("#475569")); setTextColor(Color.WHITE)
+            setOnClickListener {
+                prefs.resetAllStats()
+                refreshStatsView()
+                Toast.makeText(this@MainActivity, "Tüm istatistikler sıfırlandı", Toast.LENGTH_SHORT).show()
+            }
+        }
+        statBtnRow.addView(btnStatRefresh); statBtnRow.addView(btnStatReset)
+        root.addView(statBtnRow)
 
         // Yakıt Modu Seçimi
         root.addView(title("Yakıt Geçiş Modu"))
@@ -176,6 +216,29 @@ class MainActivity : Activity() {
         root.addView(btnAdd)
 
         setContentView(scroll)
+    }
+
+    private fun refreshStatsView() {
+        val maxC = if (prefs.maxCoolant > -999) "${prefs.maxCoolant}°C" else "--"
+        val minC = if (prefs.minCoolant < 999) "${prefs.minCoolant}°C" else "--"
+        val maxT = if (prefs.maxTrans > -999) "${prefs.maxTrans}°C" else "--"
+        val maxF = if (prefs.maxFuelL100 > 0f) "%.1f L/100km".format(prefs.maxFuelL100) else "--"
+        val minF = if (prefs.minFuelL100 < 999f) "%.1f L/100km".format(prefs.minFuelL100) else "--"
+
+        tvStatsBox.text = """
+            [ REKORLAR / MİN - MAX ]
+            • En Yüksek Su Sıcaklığı: $maxC
+            • En Düşük Su Sıcaklığı: $minC
+            • En Yüksek Şanzıman Yağı: $maxT
+            • En Yüksek Tüketim: $maxF
+            • En Düşük Tüketim: $minF
+
+            [ GÜNLÜK SÜRÜŞLER (Son 7 Gün) ]
+            ${prefs.getDailySummary()}
+
+            [ AYLIK SÜRÜŞLER ]
+            ${prefs.getMonthlySummary()}
+        """.trimIndent()
     }
 
     @SuppressLint("MissingPermission")
