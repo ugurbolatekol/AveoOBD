@@ -16,6 +16,19 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("auto_start", true)
         set(v) = sp.edit().putBoolean("auto_start", v).apply()
 
+    var panelX: Int
+        get() = sp.getInt("panel_x", 40)
+        set(v) = sp.edit().putInt("panel_x", v).apply()
+
+    var panelY: Int
+        get() = sp.getInt("panel_y", 140)
+        set(v) = sp.edit().putInt("panel_y", v).apply()
+
+    // 0 = Küçük, 1 = Orta, 2 = Büyük
+    var panelSize: Int
+        get() = sp.getInt("panel_size", 1)
+        set(v) = sp.edit().putInt("panel_size", v).apply()
+
     var autoLpgMode: Boolean
         get() = sp.getBoolean("auto_lpg_mode", true)
         set(v) = sp.edit().putBoolean("auto_lpg_mode", v).apply()
@@ -60,7 +73,6 @@ class Prefs(context: Context) {
         get() = sp.getFloat("trip_petrol_used", 0f)
         set(v) = sp.edit().putFloat("trip_petrol_used", v).apply()
 
-    // Min-Max İstatistikler
     var maxCoolant: Int
         get() = sp.getInt("stat_max_coolant", -999)
         set(v) = sp.edit().putInt("stat_max_coolant", v).apply()
