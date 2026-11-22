@@ -92,7 +92,6 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // Boyut Değiştirme Butonu (Küçük / Orta / Büyük)
         val btnSize = Button(this).apply {
             text = "B"
             textSize = 12f
@@ -198,7 +197,6 @@ class OverlayService : Service() {
             y = prefs.panelY
         }
 
-        // Sürükle-Bırak (Sağa, Sola, Yukarı, Aşağı Kaydırma)
         var initX = 0
         var initY = 0
         var touchX = 0f
@@ -232,9 +230,9 @@ class OverlayService : Service() {
 
     private fun applyPanelSize() {
         val scale = when (prefs.panelSize) {
-            0 -> 0.80f // Küçük
-            2 -> 1.30f // Büyük
-            else -> 1.00f // Orta
+            0 -> 0.80f
+            2 -> 1.30f
+            else -> 1.00f
         }
         val pad = (16 * scale).toInt()
         rootView?.setPadding(pad, (12 * scale).toInt(), pad, (12 * scale).toInt())
@@ -269,8 +267,12 @@ class OverlayService : Service() {
         scope.launch {
             var lastTime = System.currentTimeMillis()
             var loopCount = 0
+            var coolant = 40
+            var stft = 0.0
+            var ltft = 0.0
             var transTemp: Int? = null
             var volt = 0.0
+
             while (isActive) {
                 if (prefs.btAddress.isBlank()) {
                     updateStatus("Ayarlardan OBD seçin")
@@ -283,18 +285,20 @@ class OverlayService : Service() {
                     continue
                 }
                 while (isActive) {
-                    val rpmB = obd!!.readIntPid("010C", "410C")
+                    // HIZLI PID'ler (Her turda anlık okunur - sonundaki '1' ELM327 beklemesini iptal eder)
+                    val rpmB = obd!!.readIntPid("010C1", "410C")
                     if (rpmB == null) break
                     val rpm = ((rpmB[0] * 256) + rpmB.getOrElse(1) { 0 }) / 4
-                    val spd = obd!!.readIntPid("010D", "410D")?.get(0) ?: 0
-                    val mafB = obd!!.readIntPid("0110", "4110")
+                    val spd = obd!!.readIntPid("010D1", "410D")?.get(0) ?: 0
+                    val mafB = obd!!.readIntPid("01101", "4110")
                     val maf = if (mafB != null && mafB.size >= 2) ((mafB[0] * 256) + mafB[1]) / 100.0 else 0.0
-                    val load = ((obd!!.readIntPid("0104", "4104")?.get(0) ?: 0) * 100) / 255
-                    val coolant = (obd!!.readIntPid("0105", "4105")?.get(0) ?: 40) - 40
-                    val stft = ((obd!!.readIntPid("0106", "4106")?.get(0) ?: 128) - 128) * 100.0 / 128.0
-                    val ltft = ((obd!!.readIntPid("0107", "4107")?.get(0) ?: 128) - 128) * 100.0 / 128.0
+                    val load = ((obd!!.readIntPid("01041", "4104")?.get(0) ?: 0) * 100) / 255
 
-                    if (loopCount % 10 == 0) {
+                    // YAVAŞ PID'ler (Her 15 turda bir okunur - akışı yavaşlatmaz)
+                    if (loopCount % 15 == 0) {
+                        coolant = (obd!!.readIntPid("01051", "4105")?.get(0) ?: (coolant + 40)) - 40
+                        stft = ((obd!!.readIntPid("01061", "4106")?.get(0) ?: 128) - 128) * 100.0 / 128.0
+                        ltft = ((obd!!.readIntPid("01071", "4107")?.get(0) ?: 128) - 128) * 100.0 / 128.0
                         volt = obd!!.readVoltage()
                         transTemp = obd!!.readTransTempGM()
                     }
@@ -335,7 +339,7 @@ class OverlayService : Service() {
 
                     val data = ObdData(true, "BAĞLI", rpm, spd, maf, load, coolant, transTemp, volt, stft, ltft, l100, lh, avg, tlKm, isLpg, prefs.remainingLpg, range)
                     mainHandler.post { render(data) }
-                    delay(150)
+                    delay(20)
                 }
             }
         }
