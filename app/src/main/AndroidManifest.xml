@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
+        android:icon="@drawable/ic_launcher_aveo"
+        android:roundIcon="@drawable/ic_launcher_aveo"
         android:label="Aveo OBD"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
         <activity
