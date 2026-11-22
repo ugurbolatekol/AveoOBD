@@ -40,9 +40,14 @@ class OverlayService : Service() {
         super.onCreate()
         prefs = Prefs(this)
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        startForegroundNotif()
-        buildOverlay()
-        startPolling()
+        try {
+            startForegroundNotif()
+            buildOverlay()
+            startPolling()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_LONG).show()
+            stopSelf()
+        }
     }
 
     private fun startForegroundNotif() {
@@ -54,13 +59,9 @@ class OverlayService : Service() {
             .setContentText("Sağ panel çalışıyor")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .build()
-        try {
-            if (Build.VERSION.SDK_INT >= 34) {
-                startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-            } else {
-                startForeground(1, notif)
-            }
-        } catch (_: Exception) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
             startForeground(1, notif)
         }
     }
@@ -253,7 +254,6 @@ class OverlayService : Service() {
                         }
                     }
 
-                    // İstatistikleri kaydet
                     prefs.recordDriveStats(kmDelta, fuelDelta, isLpg, coolant, transTemp, l100, spd)
 
                     val totalFuel = prefs.tripLpgUsed + prefs.tripPetrolUsed
@@ -307,7 +307,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         scope.cancel()
         obd?.disconnect()
-        rootView?.let { wm.removeView(it) }
+        rootView?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         super.onDestroy()
     }
 }
