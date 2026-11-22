@@ -239,9 +239,11 @@ class OverlayService : Service() {
                     val now = System.currentTimeMillis()
                     val dtHours = (now - lastTime) / 3600000.0
                     lastTime = now
+                    var fuelDelta = 0f
+                    var kmDelta = 0f
                     if (dtHours > 0 && dtHours < 0.05) {
-                        val fuelDelta = (lh * dtHours).toFloat()
-                        val kmDelta = (spd * dtHours).toFloat()
+                        fuelDelta = (lh * dtHours).toFloat()
+                        kmDelta = (spd * dtHours).toFloat()
                         prefs.tripKm += kmDelta
                         if (isLpg) {
                             prefs.tripLpgUsed += fuelDelta
@@ -250,6 +252,9 @@ class OverlayService : Service() {
                             prefs.tripPetrolUsed += fuelDelta
                         }
                     }
+
+                    // İstatistikleri kaydet
+                    prefs.recordDriveStats(kmDelta, fuelDelta, isLpg, coolant, transTemp, l100, spd)
 
                     val totalFuel = prefs.tripLpgUsed + prefs.tripPetrolUsed
                     val avg = if (prefs.tripKm > 0.2f) (totalFuel / prefs.tripKm) * 100.0 else l100
