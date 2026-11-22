@@ -33,59 +33,90 @@ class MainActivity : Activity() {
         scroll.addView(root)
 
         fun title(t: String) = TextView(this).apply {
-            text = t; textSize = 18f; setTextColor(Color.parseColor("#00E5FF")); setPadding(0, 16, 0, 8)
+            text = t; textSize = 18f; setTextColor(Color.parseColor("#00E5FF")); setPadding(0, 18, 0, 8)
         }
 
-        root.addView(title("Chevrolet Aveo T300 â€” OBD2 & LPG Yol BilgisayarÄ±"))
+        fun label(t: String) = TextView(this).apply {
+            text = t; textSize = 13f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, 10, 0, 2)
+        }
 
-        // Bluetooth SeÃ§ici
+        root.addView(title("Chevrolet Aveo T300 — OBD2 & LPG Yol Bilgisayarı"))
+
+        // Bluetooth Seçici
+        root.addView(label("OBD2 Bluetooth Cihazı:"))
         val btMgr = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val devices = try { btMgr.adapter?.bondedDevices?.toList() ?: emptyList() } catch (_: Exception) { emptyList() }
-        val names = devices.map { "${it.name} (${it.address})" }.ifEmpty { listOf("EÅŸleÅŸmiÅŸ Bluetooth cihazÄ± yok") }
+        val names = devices.map { "${it.name} (${it.address})" }.ifEmpty { listOf("Eşleşmiş Bluetooth cihazı yok") }
         val spinner = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, names)
             setBackgroundColor(Color.parseColor("#1E293B"))
         }
         root.addView(spinner)
 
-        // BaÅŸlat / Durdur
-        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 16, 0, 16) }
+        // Başlat / Durdur
+        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 16, 0, 12) }
         val btnStart = Button(this).apply {
-            text = "SAÄ PANELÄ° BAÅLAT"
+            text = "SAĞ PANELİ BAŞLAT"
             setBackgroundColor(Color.parseColor("#00E676")); setTextColor(Color.BLACK)
             setOnClickListener {
                 if (!Settings.canDrawOverlays(this@MainActivity)) {
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-                    Toast.makeText(this@MainActivity, "Ãœzerinde gÃ¶sterme iznini aÃ§Ä±n", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "Üzerinde gösterme iznini açın", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
                 if (devices.isNotEmpty()) prefs.btAddress = devices[spinner.selectedItemPosition].address
                 startForegroundService(Intent(this@MainActivity, OverlayService::class.java))
-                Toast.makeText(this@MainActivity, "SaÄŸ panel baÅŸlatÄ±ldÄ±", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Sağ panel başlatıldı", Toast.LENGTH_SHORT).show()
             }
         }
         val btnStop = Button(this).apply {
-            text = "DURDUR"
+            text = "PANELİ KAPAT"
             setBackgroundColor(Color.parseColor("#FF5252")); setTextColor(Color.WHITE)
             setOnClickListener { stopService(Intent(this@MainActivity, OverlayService::class.java)) }
         }
         btnRow.addView(btnStart); btnRow.addView(btnStop)
         root.addView(btnRow)
 
-        // LPG & Benzin AyarlarÄ±
-        root.addView(title("LPG / Benzin & Sanal Tank AyarlarÄ±"))
-        val swAuto = Switch(this).apply {
-            text = "Otomatik GeÃ§iÅŸ (50Â°C'de LPG'ye geÃ§)"
-            setTextColor(Color.WHITE)
-            isChecked = prefs.autoLpgMode
-            setOnCheckedChangeListener { _, checked -> prefs.autoLpgMode = checked }
-        }
-        root.addView(swAuto)
+        // Yakıt Modu Seçimi (Otomatik / Manuel LPG / Manuel Benzin)
+        root.addView(title("Yakıt Geçiş Modu"))
+        val rgFuel = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        val rbAuto = RadioButton(this).apply { id = 1; text = "Otomatik (${prefs.lpgSwitchTemp}°C olunca LPG'ye geç)"; setTextColor(Color.WHITE) }
+        val rbManLpg = RadioButton(this).apply { id = 2; text = "Manuel: Sürekli LPG"; setTextColor(Color.WHITE) }
+        val rbManPet = RadioButton(this).apply { id = 3; text = "Manuel: Sürekli Benzin"; setTextColor(Color.WHITE) }
+        rgFuel.addView(rbAuto); rgFuel.addView(rbManLpg); rgFuel.addView(rbManPet)
 
-        val etLpgPrice = EditText(this).apply { hint = "LPG Litre FiyatÄ± (TL)"; setText(prefs.lpgPrice.toString()); setTextColor(Color.WHITE) }
-        val etPetPrice = EditText(this).apply { hint = "Benzin Litre FiyatÄ± (TL)"; setText(prefs.petrolPrice.toString()); setTextColor(Color.WHITE) }
-        val etTemp = EditText(this).apply { hint = "LPG GeÃ§iÅŸ SÄ±caklÄ±ÄŸÄ± (Â°C)"; setText(prefs.lpgSwitchTemp.toString()); setTextColor(Color.WHITE) }
-        val etMult = EditText(this).apply { hint = "LPG Ã‡arpanÄ± (Ã¶rn: 1.20)"; setText(prefs.lpgMultiplier.toString()); setTextColor(Color.WHITE) }
+        when {
+            prefs.autoLpgMode -> rgFuel.check(1)
+            prefs.isLpgActive -> rgFuel.check(2)
+            else -> rgFuel.check(3)
+        }
+        rgFuel.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                1 -> prefs.autoLpgMode = true
+                2 -> { prefs.autoLpgMode = false; prefs.isLpgActive = true }
+                3 -> { prefs.autoLpgMode = false; prefs.isLpgActive = false }
+            }
+        }
+        root.addView(rgFuel)
+
+        // Fiyat ve Kalibrasyon Ayarları
+        root.addView(title("Fiyat & Kalibrasyon Ayarları"))
+        root.addView(label("LPG Litre Fiyatı (TL):"))
+        val etLpgPrice = EditText(this).apply { setText(prefs.lpgPrice.toString()); setTextColor(Color.WHITE) }
+        root.addView(etLpgPrice)
+
+        root.addView(label("Benzin Litre Fiyatı (TL):"))
+        val etPetPrice = EditText(this).apply { setText(prefs.petrolPrice.toString()); setTextColor(Color.WHITE) }
+        root.addView(etPetPrice)
+
+        root.addView(label("Otomatik LPG Geçiş Sıcaklığı (°C):"))
+        val etTemp = EditText(this).apply { setText(prefs.lpgSwitchTemp.toString()); setTextColor(Color.WHITE) }
+        root.addView(etTemp)
+
+        root.addView(label("LPG Tüketim Çarpanı (örn: 1.20):"))
+        val etMult = EditText(this).apply { setText(prefs.lpgMultiplier.toString()); setTextColor(Color.WHITE) }
+        root.addView(etMult)
+
         val btnSave = Button(this).apply {
             text = "AYARLARI KAYDET"
             setOnClickListener {
@@ -93,25 +124,29 @@ class MainActivity : Activity() {
                 prefs.petrolPrice = etPetPrice.text.toString().toFloatOrNull() ?: 45.0f
                 prefs.lpgSwitchTemp = etTemp.text.toString().toIntOrNull() ?: 50
                 prefs.lpgMultiplier = etMult.text.toString().toFloatOrNull() ?: 1.20f
+                rbAuto.text = "Otomatik (${prefs.lpgSwitchTemp}°C olunca LPG'ye geç)"
                 Toast.makeText(this@MainActivity, "Ayarlar kaydedildi", Toast.LENGTH_SHORT).show()
             }
         }
-        listOf(etLpgPrice, etPetPrice, etTemp, etMult, btnSave).forEach { root.addView(it) }
+        root.addView(btnSave)
 
         // Sanal Tank Dolum
-        root.addView(title("Sanal LPG TankÄ± (Kapasite: 33.5 L)"))
+        root.addView(title("Sanal LPG Tankı (Kapasite: 33.5 L)"))
         val btnFull = Button(this).apply {
             text = "TAM DOLDURDUM (33.5 L) & SAYACI SIFIRLA"
             setBackgroundColor(Color.parseColor("#0288D1")); setTextColor(Color.WHITE)
             setOnClickListener {
                 prefs.remainingLpg = prefs.tankCapacity
                 prefs.resetTrip()
-                Toast.makeText(this@MainActivity, "Tank 33.5 L yapÄ±ldÄ±, sayaÃ§ sÄ±fÄ±rlandÄ±", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Tank 33.5 L yapıldı, sayaç sıfırlandı", Toast.LENGTH_SHORT).show()
             }
         }
-        val etAddLpg = EditText(this).apply { hint = "KÄ±smi LPG Dolumu (Litre, Ã¶rn: 15)"; setTextColor(Color.WHITE) }
+        root.addView(btnFull)
+
+        root.addView(label("Kısmi LPG Dolumu (Alınan Litre):"))
+        val etAddLpg = EditText(this).apply { hint = "örn: 15"; setTextColor(Color.WHITE) }
         val btnAdd = Button(this).apply {
-            text = "KISMÄ° DOLUM EKLE"
+            text = "KISMİ DOLUM EKLE"
             setOnClickListener {
                 val add = etAddLpg.text.toString().toFloatOrNull() ?: 0f
                 if (add > 0f) {
@@ -120,7 +155,8 @@ class MainActivity : Activity() {
                 }
             }
         }
-        listOf(btnFull, etAddLpg, btnAdd).forEach { root.addView(it) }
+        root.addView(etAddLpg)
+        root.addView(btnAdd)
 
         setContentView(scroll)
     }
