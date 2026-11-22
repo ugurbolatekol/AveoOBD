@@ -17,6 +17,7 @@ class OverlayService : Service() {
     private lateinit var wm: WindowManager
     private lateinit var prefs: Prefs
     private lateinit var panelBg: GradientDrawable
+    private lateinit var params: WindowManager.LayoutParams
     private var rootView: LinearLayout? = null
     private var isMini = false
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -56,8 +57,8 @@ class OverlayService : Service() {
         nm.createNotificationChannel(NotificationChannel(chId, "Aveo OBD", NotificationManager.IMPORTANCE_LOW))
         val notif = Notification.Builder(this, chId)
             .setContentTitle("Aveo OBD Aktif")
-            .setContentText("Sağ panel çalışıyor")
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setContentText("Yüzen panel çalışıyor")
+            .setSmallIcon(R.drawable.ic_launcher_aveo)
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -86,10 +87,23 @@ class OverlayService : Service() {
 
         tvEco = TextView(this).apply {
             text = "EKO HAZIR"
-            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#00E676"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        // Boyut Değiştirme Butonu (Küçük / Orta / Büyük)
+        val btnSize = Button(this).apply {
+            text = "B"
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#440288D1"))
+            setPadding(12, 0, 12, 0)
+            minimumWidth = 0; minWidth = 0; minimumHeight = 0; minHeight = 0
+            setOnClickListener {
+                prefs.panelSize = (prefs.panelSize + 1) % 3
+                applyPanelSize()
+            }
         }
 
         val btnMini = Button(this).apply {
@@ -99,6 +113,10 @@ class OverlayService : Service() {
             setBackgroundColor(Color.parseColor("#33FFFFFF"))
             setPadding(14, 0, 14, 0)
             minimumWidth = 0; minWidth = 0; minimumHeight = 0; minHeight = 0
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { leftMargin = 6 }
             setOnClickListener {
                 isMini = !isMini
                 contentBox.visibility = if (isMini) View.GONE else View.VISIBLE
@@ -117,11 +135,12 @@ class OverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { leftMargin = 8 }
+            ).apply { leftMargin = 6 }
             setOnClickListener { stopSelf() }
         }
 
         topBar.addView(tvEco)
+        topBar.addView(btnSize)
         topBar.addView(btnMini)
         topBar.addView(btnClose)
         rootView!!.addView(topBar)
@@ -141,16 +160,15 @@ class OverlayService : Service() {
             orientation = LinearLayout.VERTICAL
         }
 
-        tvRpm = makeText("0 RPM  |  0 km/s", 18f, "#FFFFFF")
-        tvInstant = makeText("ANLIK: 0.0 L/sa", 16f, "#00E5FF")
-        tvAvg = makeText("ORT: 0.0 L | 0.00 TL/km", 13f, "#FFB300")
-        tvTemp = makeText("SU: --°C | ŞNZ: --°C", 13f, "#E0E0E0")
-        tvVoltTrim = makeText("AKÜ: --V | S: 0 L: 0", 12f, "#B0BEC5")
-        tvTank = makeText("LPG: %.1f L".format(prefs.remainingLpg), 13f, "#80CBC4")
+        tvRpm = makeText("0 RPM  |  0 km/s", "#FFFFFF")
+        tvInstant = makeText("ANLIK: 0.0 L/sa", "#00E5FF")
+        tvAvg = makeText("ORT: 0.0 L | 0.00 TL/km", "#FFB300")
+        tvTemp = makeText("SU: --°C | ŞNZ: --°C", "#E0E0E0")
+        tvVoltTrim = makeText("AKÜ: --V | S: 0 L: 0", "#B0BEC5")
+        tvTank = makeText("LPG: %.1f L".format(prefs.remainingLpg), "#80CBC4")
 
         tvFuelBadge = TextView(this).apply {
             gravity = Gravity.CENTER
-            textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.BLACK)
             setPadding(10, 6, 10, 6)
@@ -166,17 +184,71 @@ class OverlayService : Service() {
         }
         rootView!!.addView(contentBox)
 
-        val params = WindowManager.LayoutParams(
+        applyPanelSize()
+
+        params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            x = 12
+            gravity = Gravity.TOP or Gravity.START
+            x = prefs.panelX
+            y = prefs.panelY
         }
+
+        // Sürükle-Bırak (Sağa, Sola, Yukarı, Aşağı Kaydırma)
+        var initX = 0
+        var initY = 0
+        var touchX = 0f
+        var touchY = 0f
+        rootView!!.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initX = params.x
+                    initY = params.y
+                    touchX = event.rawX
+                    touchY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = initX + (event.rawX - touchX).toInt()
+                    params.y = initY + (event.rawY - touchY).toInt()
+                    try { wm.updateViewLayout(rootView, params) } catch (_: Exception) {}
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    prefs.panelX = params.x
+                    prefs.panelY = params.y
+                    true
+                }
+                else -> false
+            }
+        }
+
         wm.addView(rootView, params)
+    }
+
+    private fun applyPanelSize() {
+        val scale = when (prefs.panelSize) {
+            0 -> 0.80f // Küçük
+            2 -> 1.30f // Büyük
+            else -> 1.00f // Orta
+        }
+        val pad = (16 * scale).toInt()
+        rootView?.setPadding(pad, (12 * scale).toInt(), pad, (12 * scale).toInt())
+        tvEco.textSize = 13f * scale
+        tvRpm.textSize = 18f * scale
+        tvInstant.textSize = 16f * scale
+        tvAvg.textSize = 13f * scale
+        tvTemp.textSize = 13f * scale
+        tvVoltTrim.textSize = 12f * scale
+        tvTank.textSize = 13f * scale
+        tvFuelBadge.textSize = 12f * scale
+        ecoBar.layoutParams = (ecoBar.layoutParams as LinearLayout.LayoutParams).apply {
+            height = (18 * scale).toInt()
+        }
     }
 
     private fun updateFuelBadge(isLpg: Boolean) {
@@ -185,11 +257,10 @@ class OverlayService : Service() {
         tvFuelBadge.setBackgroundColor(if (isLpg) Color.parseColor("#00E676") else Color.parseColor("#FFC400"))
     }
 
-    private fun makeText(t: String, size: Float, color: String) = TextView(this).apply {
+    private fun makeText(t: String, color: String) = TextView(this).apply {
         text = t
-        textSize = size
         setTextColor(Color.parseColor(color))
-        setPadding(0, 5, 0, 5)
+        setPadding(0, 4, 0, 4)
     }
 
     private fun startPolling() {
