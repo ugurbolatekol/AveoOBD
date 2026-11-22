@@ -3,6 +3,7 @@ package com.aveoobd.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
@@ -11,10 +12,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 
 class MainActivity : Activity() {
     private lateinit var prefs: Prefs
+    private var devices: List<BluetoothDevice> = emptyList()
+    private lateinit var spinner: Spinner
 
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,21 +47,33 @@ class MainActivity : Activity() {
 
         root.addView(title("Chevrolet Aveo T300 — OBD2 & LPG Yol Bilgisayarı"))
 
-        // Bluetooth Seçici
-        root.addView(label("OBD2 Bluetooth Cihazı:"))
-        val btMgr = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        val devices = try { btMgr.adapter?.bondedDevices?.toList() ?: emptyList() } catch (_: Exception) { emptyList() }
-        val names = devices.map { "${it.name} (${it.address})" }.ifEmpty { listOf("Eşleşmiş Bluetooth cihazı yok") }
-        val spinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, names)
-            setBackgroundColor(Color.parseColor("#1E293B"))
-        }
+        // Bluetooth Seçici + Eşleştir + Yenile
+        root.addView(label("OBD2 Bluetooth Cihazı (Önce Bluetooth'tan eşleştirin):"))
+        spinner = Spinner(this).apply { setBackgroundColor(Color.parseColor("#1E293B")) }
         root.addView(spinner)
+        refreshBluetoothList()
+
+        val btBtnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 8, 0, 8) }
+        val btnBtSettings = Button(this).apply {
+            text = "BLUETOOTH AYARLARINI AÇ"
+            setBackgroundColor(Color.parseColor("#334155")); setTextColor(Color.WHITE)
+            setOnClickListener { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+        }
+        val btnRefresh = Button(this).apply {
+            text = "LİSTEYİ YENİLE"
+            setBackgroundColor(Color.parseColor("#0288D1")); setTextColor(Color.WHITE)
+            setOnClickListener {
+                refreshBluetoothList()
+                Toast.makeText(this@MainActivity, "Bluetooth listesi yenilendi", Toast.LENGTH_SHORT).show()
+            }
+        }
+        btBtnRow.addView(btnBtSettings); btBtnRow.addView(btnRefresh)
+        root.addView(btBtnRow)
 
         // Başlat / Durdur
-        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 16, 0, 12) }
+        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 12, 0, 12) }
         val btnStart = Button(this).apply {
-            text = "SAĞ PANELİ BAŞLAT"
+            text = "BAĞLAN VE SAĞ PANELİ BAŞLAT"
             setBackgroundColor(Color.parseColor("#00E676")); setTextColor(Color.BLACK)
             setOnClickListener {
                 if (!Settings.canDrawOverlays(this@MainActivity)) {
@@ -77,7 +94,7 @@ class MainActivity : Activity() {
         btnRow.addView(btnStart); btnRow.addView(btnStop)
         root.addView(btnRow)
 
-        // Yakıt Modu Seçimi (Otomatik / Manuel LPG / Manuel Benzin)
+        // Yakıt Modu Seçimi
         root.addView(title("Yakıt Geçiş Modu"))
         val rgFuel = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         val rbAuto = RadioButton(this).apply { id = 1; text = "Otomatik (${prefs.lpgSwitchTemp}°C olunca LPG'ye geç)"; setTextColor(Color.WHITE) }
@@ -159,5 +176,19 @@ class MainActivity : Activity() {
         root.addView(btnAdd)
 
         setContentView(scroll)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun refreshBluetoothList() {
+        val btMgr = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        devices = try { btMgr.adapter?.bondedDevices?.toList() ?: emptyList() } catch (_: Exception) { emptyList() }
+        val names = devices.map { "${it.name} (${it.address})" }.ifEmpty { listOf("Eşleşmiş Bluetooth cihazı yok") }
+        spinner.adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, names) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val v = super.getView(position, convertView, parent) as TextView
+                v.setTextColor(Color.WHITE)
+                return v
+            }
+        }
     }
 }
