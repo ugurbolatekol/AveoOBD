@@ -54,9 +54,13 @@ class OverlayService : Service() {
             .setContentText("Sağ panel çalışıyor")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .build()
-        if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-        } else {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+            } else {
+                startForeground(1, notif)
+            }
+        } catch (_: Exception) {
             startForeground(1, notif)
         }
     }
@@ -121,7 +125,6 @@ class OverlayService : Service() {
         topBar.addView(btnClose)
         rootView!!.addView(topBar)
 
-        // Görsel Eko-Kılavuz Barı
         ecoBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progress = 25
@@ -154,8 +157,8 @@ class OverlayService : Service() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = 6 }
-            updateFuelBadge(prefs.isLpgActive)
         }
+        updateFuelBadge(prefs.isLpgActive)
 
         listOf(tvRpm, tvInstant, tvAvg, tvTemp, tvVoltTrim, tvTank, tvFuelBadge).forEach {
             contentBox.addView(it)
