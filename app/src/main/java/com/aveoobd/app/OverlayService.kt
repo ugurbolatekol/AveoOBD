@@ -267,6 +267,7 @@ class OverlayService : Service() {
         scope.launch {
             var lastTime = System.currentTimeMillis()
             var loopCount = 0
+            var failCount = 0
             var coolant = 40
             var stft = 0.0
             var ltft = 0.0
@@ -279,28 +280,38 @@ class OverlayService : Service() {
                     delay(3000)
                     continue
                 }
+                obd?.disconnect()
                 if (!obd!!.connect(prefs.btAddress)) {
                     updateStatus("OBD bekleniyor...")
-                    delay(4000)
+                    delay(3000)
                     continue
                 }
+                failCount = 0
+                loopCount = 0
+
                 while (isActive) {
-                    // HIZLI PID'ler (Her turda anlık okunur - sonundaki '1' ELM327 beklemesini iptal eder)
                     val rpmB = obd!!.readIntPid("010C1", "410C")
-                    if (rpmB == null) break
+                    if (rpmB == null) {
+                        failCount++
+                        if (failCount >= 5) break
+                        delay(150)
+                        continue
+                    }
+                    failCount = 0
+
                     val rpm = ((rpmB[0] * 256) + rpmB.getOrElse(1) { 0 }) / 4
                     val spd = obd!!.readIntPid("010D1", "410D")?.get(0) ?: 0
                     val mafB = obd!!.readIntPid("01101", "4110")
                     val maf = if (mafB != null && mafB.size >= 2) ((mafB[0] * 256) + mafB[1]) / 100.0 else 0.0
                     val load = ((obd!!.readIntPid("01041", "4104")?.get(0) ?: 0) * 100) / 255
 
-                    // YAVAŞ PID'ler (Her 15 turda bir okunur - akışı yavaşlatmaz)
-                    if (loopCount % 15 == 0) {
+                    if (loopCount % 25 == 0) {
                         coolant = (obd!!.readIntPid("01051", "4105")?.get(0) ?: (coolant + 40)) - 40
                         stft = ((obd!!.readIntPid("01061", "4106")?.get(0) ?: 128) - 128) * 100.0 / 128.0
                         ltft = ((obd!!.readIntPid("01071", "4107")?.get(0) ?: 128) - 128) * 100.0 / 128.0
                         volt = obd!!.readVoltage()
-                        transTemp = obd!!.readTransTempGM()
+                        transTemp = obd!!.readTransTempGM() ?: transTemp
+                        delay(60)
                     }
                     loopCount++
 
@@ -339,7 +350,7 @@ class OverlayService : Service() {
 
                     val data = ObdData(true, "BAĞLI", rpm, spd, maf, load, coolant, transTemp, volt, stft, ltft, l100, lh, avg, tlKm, isLpg, prefs.remainingLpg, range)
                     mainHandler.post { render(data) }
-                    delay(20)
+                    delay(60)
                 }
             }
         }
