@@ -14,6 +14,11 @@ import android.widget.*
 import kotlinx.coroutines.*
 
 class OverlayService : Service() {
+    companion object {
+        const val ACTION_SHOW_PIP = "SHOW_PIP"
+        const val ACTION_HIDE_PIP = "HIDE_PIP"
+    }
+
     private lateinit var wm: WindowManager
     private lateinit var prefs: Prefs
     private lateinit var panelBg: GradientDrawable
@@ -51,13 +56,21 @@ class OverlayService : Service() {
         }
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_HIDE_PIP -> mainHandler.post { rootView?.visibility = View.GONE }
+            ACTION_SHOW_PIP -> mainHandler.post { rootView?.visibility = View.VISIBLE }
+        }
+        return START_STICKY
+    }
+
     private fun startForegroundNotif() {
         val chId = "aveo_obd_ch"
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(chId, "Aveo OBD", NotificationManager.IMPORTANCE_LOW))
         val notif = Notification.Builder(this, chId)
             .setContentTitle("Aveo OBD Aktif")
-            .setContentText("Yüzen panel çalışıyor")
+            .setContentText("OBD2 bağlantısı çalışıyor")
             .setSmallIcon(R.drawable.ic_launcher_aveo)
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
@@ -276,16 +289,20 @@ class OverlayService : Service() {
 
             while (isActive) {
                 if (prefs.btAddress.isBlank()) {
+                    ObdState.isConnected = false
                     updateStatus("Ayarlardan OBD seçin")
                     delay(3000)
                     continue
                 }
                 obd?.disconnect()
                 if (!obd!!.connect(prefs.btAddress)) {
+                    ObdState.isConnected = false
                     updateStatus("OBD bekleniyor...")
                     delay(3000)
                     continue
                 }
+                ObdState.isConnected = true
+                ObdState.statusText = "OBD2 BAĞLI"
                 failCount = 0
                 loopCount = 0
 
@@ -304,6 +321,9 @@ class OverlayService : Service() {
                     val mafB = obd!!.readIntPid("01101", "4110")
                     val maf = if (mafB != null && mafB.size >= 2) ((mafB[0] * 256) + mafB[1]) / 100.0 else 0.0
                     val load = ((obd!!.readIntPid("01041", "4104")?.get(0) ?: 0) * 100) / 255
+
+                    if (rpm > ObdState.maxSessionRpm) ObdState.maxSessionRpm = rpm
+                    if (spd > ObdState.maxSessionSpeed) ObdState.maxSessionSpeed = spd
 
                     if (loopCount % 25 == 0) {
                         coolant = (obd!!.readIntPid("01051", "4105")?.get(0) ?: (coolant + 40)) - 40
@@ -349,6 +369,7 @@ class OverlayService : Service() {
                     val range = if (avg > 1.0) ((prefs.remainingLpg / avg) * 100).toInt() else 0
 
                     val data = ObdData(true, "BAĞLI", rpm, spd, maf, load, coolant, transTemp, volt, stft, ltft, l100, lh, avg, tlKm, isLpg, prefs.remainingLpg, range)
+                    ObdState.latestData = data
                     mainHandler.post { render(data) }
                     delay(60)
                 }
@@ -357,6 +378,7 @@ class OverlayService : Service() {
     }
 
     private fun updateStatus(msg: String) {
+        ObdState.statusText = msg
         mainHandler.post { tvEco.text = msg }
     }
 
@@ -374,7 +396,8 @@ class OverlayService : Service() {
         ecoBar.progressTintList = ColorStateList.valueOf(parsedColor)
         panelBg.setStroke(4, parsedColor)
 
-        tvRpm.text = "${d.rpm} RPM  |  ${d.speed} km/s"
+        val gear = ObdState.estimateGear(d.rpm, d.speed)
+        tvRpm.text = "${d.rpm} RPM | ${d.speed} km/s [$gear]"
         tvInstant.text = if (d.speed >= 3) "ANLIK: %.1f L/100km".format(d.instantL100) else "RÖLANTİ: %.2f L/sa".format(d.instantLh)
         tvAvg.text = "ORT: %.1f L | %.2f TL/km".format(d.avgL100, d.tlPerKm)
         val tStr = d.transTemp?.let { "${it}°C" } ?: "--"
@@ -391,6 +414,8 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        ObdState.isConnected = false
+        ObdState.statusText = "BAĞLI DEĞİL"
         scope.cancel()
         obd?.disconnect()
         rootView?.let { try { wm.removeView(it) } catch (_: Exception) {} }
