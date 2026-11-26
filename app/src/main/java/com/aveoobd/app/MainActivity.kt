@@ -29,7 +29,6 @@ class MainActivity : Activity() {
     private lateinit var tvTopStatus: TextView
     private lateinit var tvTopTitle: TextView
 
-    // Sekme Konteynerleri
     private lateinit var viewDashboard: LinearLayout
     private lateinit var viewStats: LinearLayout
     private lateinit var viewSettings: ScrollView
@@ -38,6 +37,7 @@ class MainActivity : Activity() {
     private lateinit var tabSettingsBtn: Button
 
     // Dashboard Elemanları
+    private lateinit var ledEcoBar: LedEcoBarView
     private lateinit var rpmGauge: RpmGaugeView
     private lateinit var tvGearBig: TextView
     private lateinit var barCoolant: GradientBarView
@@ -87,11 +87,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.parseColor("#111927"))
-            setPadding(24, 12, 24, 12)
+            setPadding(24, 10, 24, 10)
         }
         tvTopTitle = TextView(this).apply {
             text = "Aveo OBD - Gösterge Paneli"
-            textSize = 16f
+            textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -106,7 +106,7 @@ class MainActivity : Activity() {
         topBar.addView(tvTopStatus)
         mainRoot.addView(topBar)
 
-        // ORTA İÇERİK ALANI (3 Sekme)
+        // ORTA İÇERİK ALANI
         val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
@@ -119,11 +119,11 @@ class MainActivity : Activity() {
         contentFrame.addView(viewSettings)
         mainRoot.addView(contentFrame)
 
-        // ALT NAVİGASYON BARI (4 Sekme)
+        // ALT NAVİGASYON BARI
         val bottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.parseColor("#111927"))
-            setPadding(8, 8, 8, 8)
+            setPadding(8, 6, 8, 6)
         }
 
         tabDashBtn = makeTabButton("GÖSTERGE PANELİ") { switchTab(0) }
@@ -142,7 +142,6 @@ class MainActivity : Activity() {
 
         setContentView(mainRoot)
 
-        // İlk açılışta OBD seçili değilse Ayarlar'ı, seçiliyse Gösterge'yi aç
         if (prefs.btAddress.isBlank()) {
             switchTab(2)
         } else {
@@ -223,8 +222,16 @@ class MainActivity : Activity() {
     private fun buildDashboardView(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 10, 16, 10)
+            setPadding(16, 8, 16, 8)
         }
+
+        // ÜST PARÇALI LED VERİMLİLİK / DEVİR BARI
+        ledEcoBar = LedEcoBarView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 38).apply {
+                bottomMargin = 8
+            }
+        }
+        root.addView(ledEcoBar)
 
         val middleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -240,22 +247,22 @@ class MainActivity : Activity() {
 
         tvGearBig = TextView(this).apply {
             text = "P/N"
-            textSize = 24f
+            textSize = 22f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             background = makeCardBg("#00E676")
-            setPadding(18, 8, 18, 8)
+            setPadding(18, 6, 18, 6)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP or Gravity.END
-            ).apply { setMargins(0, 8, 8, 0) }
+            ).apply { setMargins(0, 4, 8, 0) }
         }
         leftBox.addView(tvGearBig)
         middleRow.addView(leftBox)
 
-        // SAĞ: 5 Renkli Bar (Su, Şanzıman, Anlık, Ortalama+TL, Yük)
+        // SAĞ: 5 Renkli Bar
         val rightBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
@@ -274,8 +281,8 @@ class MainActivity : Activity() {
             }
             header.addView(tvLbl); header.addView(tvVal)
             val bar = GradientBarView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 16).apply {
-                    topMargin = 4; bottomMargin = 10
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 15).apply {
+                    topMargin = 3; bottomMargin = 8
                 }
             }
             rightBox.addView(header)
@@ -292,14 +299,14 @@ class MainActivity : Activity() {
         middleRow.addView(rightBox)
         root.addView(middleRow)
 
-        // ALT KARTLAR: Akü | Trimler | Kalan LPG
+        // ALT KARTLAR
         val cardsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, 6, 0, 0)
         }
         fun makeBottomCard(initText: String, border: String) = TextView(this).apply {
             text = initText; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER; background = makeCardBg(border); setPadding(10, 12, 10, 12)
+            gravity = Gravity.CENTER; background = makeCardBg(border); setPadding(10, 10, 10, 10)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(6, 0, 6, 0)
             }
@@ -318,6 +325,12 @@ class MainActivity : Activity() {
         tvTopStatus.setTextColor(if (ObdState.isConnected) Color.parseColor("#00E676") else Color.parseColor("#FFC400"))
 
         val d = ObdState.latestData ?: return
+
+        // Üst LED Bar (Motor yükü ve devir kombinasyonu)
+        val ecoLevel = maxOf(d.load / 100f, d.rpm / 5000f).coerceIn(0.05f, 1f)
+        ledEcoBar.progress = ecoLevel
+        ledEcoBar.invalidate()
+
         rpmGauge.rpm = d.rpm
         rpmGauge.speed = d.speed
         rpmGauge.maxRpm = ObdState.maxSessionRpm
@@ -409,7 +422,7 @@ class MainActivity : Activity() {
         """.trimIndent()
     }
 
-    // ==================== 3. AYARLAR (İKİ SÜTUN YATAY) ====================
+    // ==================== 3. AYARLAR ====================
     @SuppressLint("MissingPermission")
     private fun buildSettingsView(): ScrollView {
         val scroll = ScrollView(this)
@@ -426,7 +439,6 @@ class MainActivity : Activity() {
             text = t; textSize = 12f; setTextColor(Color.parseColor("#94A3B8")); setPadding(0, 6, 0, 2)
         }
 
-        // SOL SÜTUN: Bluetooth + Otomatik Başlat + Yakıt Modu
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = makeCardBg("#1E293B")
@@ -486,7 +498,6 @@ class MainActivity : Activity() {
         }
         leftCol.addView(rgFuel)
 
-        // SAĞ SÜTUN: Fiyat/Kalibrasyon + Sanal LPG Tankı
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = makeCardBg("#1E293B")
