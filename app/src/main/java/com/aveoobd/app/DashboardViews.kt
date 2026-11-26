@@ -29,16 +29,16 @@ object ObdState {
 }
 
 class LedEcoBarView(context: Context) : View(context) {
-    var progress: Float = 0.25f // 0f..1f
+    var progress: Float = 0.25f
     private val segmentCount = 32
     private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#0D1520")
+        color = Color.parseColor("#080D14")
         style = Paint.Style.FILL
     }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#2A3B52")
+        color = Color.parseColor("#1E293B")
         style = Paint.Style.STROKE
-        strokeWidth = 2.5f
+        strokeWidth = 3f
     }
     private val segPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -52,11 +52,11 @@ class LedEcoBarView(context: Context) : View(context) {
         if (w <= 0f || h <= 0f) return
 
         rect.set(2f, 2f, w - 2f, h - 2f)
-        canvas.drawRoundRect(rect, 12f, 12f, framePaint)
-        canvas.drawRoundRect(rect, 12f, 12f, borderPaint)
+        canvas.drawRoundRect(rect, 14f, 14f, framePaint)
+        canvas.drawRoundRect(rect, 14f, 14f, borderPaint)
 
-        val padX = 10f
-        val padY = 7f
+        val padX = 12f
+        val padY = 8f
         val gap = 5f
         val usableW = w - 2 * padX
         val segW = (usableW - gap * (segmentCount - 1)) / segmentCount
@@ -75,7 +75,7 @@ class LedEcoBarView(context: Context) : View(context) {
             )
             val left = padX + i * (segW + gap)
             rect.set(left, padY, left + segW, h - padY)
-            canvas.drawRoundRect(rect, 5f, 5f, segPaint)
+            canvas.drawRoundRect(rect, 6f, 6f, segPaint)
         }
     }
 }
@@ -88,25 +88,22 @@ class RpmGaugeView(context: Context) : View(context) {
 
     private val outerRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 3f
+        strokeWidth = 4f
         color = Color.parseColor("#334155")
     }
     private val bgArcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 18f
-        strokeCap = Paint.Cap.BUTT
-        color = Color.parseColor("#162233")
+        strokeWidth = 20f
+        color = Color.parseColor("#121B2A")
     }
     private val activeArcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 18f
-        strokeCap = Paint.Cap.BUTT
+        strokeWidth = 20f
         color = Color.parseColor("#00C8FF")
     }
     private val redZonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 18f
-        strokeCap = Paint.Cap.BUTT
+        strokeWidth = 20f
         color = Color.parseColor("#CCFF1744")
     }
     private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -141,17 +138,12 @@ class RpmGaugeView(context: Context) : View(context) {
         val cy = height / 2f
         val radius = size * 0.44f
 
-        // Dış çerçeve halkası
-        canvas.drawCircle(cx, cy, radius + 12f, outerRingPaint)
+        canvas.drawCircle(cx, cy, radius + 14f, outerRingPaint)
 
-        // Ana yaylar (135° -> +270°)
         rect.set(cx - radius, cy - radius, cx + radius, cy + radius)
         canvas.drawArc(rect, 135f, 270f, false, bgArcPaint)
-
-        // Kırmızı bölge (6500 - 8000 RPM)
         canvas.drawArc(rect, 135f + 270f * 0.8125f, 270f * 0.1875f, false, redZonePaint)
 
-        // Aktif devir yayı
         val ratio = (rpm.toFloat() / 8000f).coerceIn(0f, 1f)
         activeArcPaint.color = when {
             rpm > 6000 -> Color.parseColor("#FF1744")
@@ -160,20 +152,19 @@ class RpmGaugeView(context: Context) : View(context) {
         }
         canvas.drawArc(rect, 135f, 270f * ratio, false, activeArcPaint)
 
-        // Kadran çizgileri (0..8 arası, her 250 RPM'de bir çizgi = 32 aralık)
         val totalTicks = 32
-        numPaint.textSize = size * 0.062f
+        numPaint.textSize = size * 0.065f
         for (i in 0..totalTicks) {
             val deg = 135.0 + (270.0 * i / totalTicks)
             val rad = deg * PI / 180.0
             val isMajor = (i % 4 == 0)
             val isRed = (i >= 26)
 
-            tickPaint.strokeWidth = if (isMajor) 4f else 2f
+            tickPaint.strokeWidth = if (isMajor) 5f else 2.5f
             tickPaint.color = if (isRed) Color.parseColor("#FF1744") else Color.parseColor("#E2E8F0")
 
-            val rOuter = radius + 6f
-            val rInner = radius - if (isMajor) 14f else 7f
+            val rOuter = radius + 8f
+            val rInner = radius - if (isMajor) 16f else 8f
             canvas.drawLine(
                 (cx + rInner * cos(rad)).toFloat(),
                 (cy + rInner * sin(rad)).toFloat(),
@@ -184,7 +175,7 @@ class RpmGaugeView(context: Context) : View(context) {
 
             if (isMajor) {
                 val label = (i / 4).toString()
-                val rNum = radius - 30f
+                val rNum = radius - 34f
                 numPaint.color = if (isRed) Color.parseColor("#FF1744") else Color.parseColor("#CBD5E1")
                 val tx = (cx + rNum * cos(rad)).toFloat()
                 val ty = (cy + rNum * sin(rad)).toFloat() + numPaint.textSize * 0.35f
@@ -192,27 +183,26 @@ class RpmGaugeView(context: Context) : View(context) {
             }
         }
 
-        // Orta dijital değerler
         subTextPaint.textSize = size * 0.055f
         canvas.drawText("RPM", cx, cy - size * 0.14f, subTextPaint)
 
-        rpmTextPaint.textSize = size * 0.19f
+        rpmTextPaint.textSize = size * 0.20f
         canvas.drawText("$rpm", cx, cy + size * 0.02f, rpmTextPaint)
 
-        speedTextPaint.textSize = size * 0.13f
-        canvas.drawText("$speed", cx, cy + size * 0.19f, speedTextPaint)
+        speedTextPaint.textSize = size * 0.14f
+        canvas.drawText("$speed", cx, cy + size * 0.20f, speedTextPaint)
 
         subTextPaint.textSize = size * 0.052f
-        canvas.drawText("km/s", cx, cy + size * 0.26f, subTextPaint)
+        canvas.drawText("km/h", cx, cy + size * 0.27f, subTextPaint)
 
-        subTextPaint.textSize = size * 0.048f
-        canvas.drawText("MAKS: $maxRpm | $maxSpeed km/s", cx, cy + size * 0.38f, subTextPaint)
+        subTextPaint.textSize = size * 0.046f
+        canvas.drawText("MAKS: $maxRpm | $maxSpeed km/s", cx, cy + size * 0.39f, subTextPaint)
     }
 }
 
 class GradientBarView(context: Context) : View(context) {
     var progress: Float = 0f
-    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1E293B") }
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#0F172A") }
     private val fgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
 
