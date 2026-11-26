@@ -36,7 +36,7 @@ class MainActivity : Activity() {
     private lateinit var tabStatsBtn: Button
     private lateinit var tabSettingsBtn: Button
 
-    // Dashboard Elemanları
+    // Dashboard Elemanları (Ek 2 Tarzı)
     private lateinit var ledEcoBar: LedEcoBarView
     private lateinit var rpmGauge: RpmGaugeView
     private lateinit var tvGearBig: TextView
@@ -79,14 +79,14 @@ class MainActivity : Activity() {
 
         val mainRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#0B111A"))
+            setBackgroundColor(Color.parseColor("#060A10"))
         }
 
         // ÜST DURUM BARI
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#111927"))
+            setBackgroundColor(Color.parseColor("#0D1420"))
             setPadding(24, 10, 24, 10)
         }
         tvTopTitle = TextView(this).apply {
@@ -122,7 +122,7 @@ class MainActivity : Activity() {
         // ALT NAVİGASYON BARI
         val bottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#111927"))
+            setBackgroundColor(Color.parseColor("#0D1420"))
             setPadding(8, 6, 8, 6)
         }
 
@@ -213,22 +213,22 @@ class MainActivity : Activity() {
     }
 
     private fun makeCardBg(borderColor: String = "#1E293B") = GradientDrawable().apply {
-        setColor(Color.parseColor("#131C2B"))
+        setColor(Color.parseColor("#0D1420"))
         cornerRadius = 18f
         setStroke(2, Color.parseColor(borderColor))
     }
 
-    // ==================== 1. GÖSTERGE PANELİ (YATAY) ====================
+    // ==================== 1. GÖSTERGE PANELİ (DEVASELAŞTIRILMIŞ) ====================
     private fun buildDashboardView(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 8, 16, 8)
         }
 
-        // ÜST PARÇALI LED VERİMLİLİK / DEVİR BARI
+        // LED Verimlilik Barı
         ledEcoBar = LedEcoBarView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 38).apply {
-                bottomMargin = 8
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 42).apply {
+                bottomMargin = 6
             }
         }
         root.addView(ledEcoBar)
@@ -247,42 +247,44 @@ class MainActivity : Activity() {
 
         tvGearBig = TextView(this).apply {
             text = "P/N"
-            textSize = 22f
+            textSize = 24f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
-            background = makeCardBg("#00E676")
-            setPadding(18, 6, 18, 6)
+            background = makeCardBg("#00E676").apply { strokeWidth = 3 }
+            setPadding(22, 8, 22, 8)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP or Gravity.END
-            ).apply { setMargins(0, 4, 8, 0) }
+            ).apply { setMargins(0, 6, 12, 0) }
         }
         leftBox.addView(tvGearBig)
         middleRow.addView(leftBox)
 
-        // SAĞ: 5 Renkli Bar
+        // SAĞ: Devasa Değerler + Kalın Gösterge Barları
         val rightBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(16, 0, 8, 0)
+            setPadding(20, 0, 4, 0)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.56f)
         }
 
-        fun addMetricRow(label: String): Pair<TextView, GradientBarView> {
+        fun addMetricRow(label: String, valColor: String = "#FFFFFF"): Pair<TextView, GradientBarView> {
             val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             val tvLbl = TextView(this).apply {
-                text = label; textSize = 12f; setTextColor(Color.parseColor("#94A3B8"))
+                text = label; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#94A3B8"))
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
+            // Değer boyutu 14sp'den 24sp'ye çıkarıldı ve kalınlaştırıldı
             val tvVal = TextView(this).apply {
-                text = "--"; textSize = 14f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE)
+                text = "--"; textSize = 24f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor(valColor))
             }
             header.addView(tvLbl); header.addView(tvVal)
+            // Gösterge bar yüksekliği 15dp'den 26dp'ye çıkarıldı
             val bar = GradientBarView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 15).apply {
-                    topMargin = 3; bottomMargin = 8
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 26).apply {
+                    topMargin = 4; bottomMargin = 8
                 }
             }
             rightBox.addView(header)
@@ -290,11 +292,11 @@ class MainActivity : Activity() {
             return Pair(tvVal, bar)
         }
 
-        val (vCool, bCool) = addMetricRow("SU SICAKLIĞI"); tvCoolantVal = vCool; barCoolant = bCool
-        val (vTrans, bTrans) = addMetricRow("ŞANZIMAN YAĞI"); tvTransVal = vTrans; barTrans = bTrans
-        val (vInst, bInst) = addMetricRow("ANLIK TÜKETİM"); tvInstantVal = vInst; barInstant = bInst
-        val (vAvg, bAvg) = addMetricRow("ORTALAMA YAKIT (MALİYET)"); tvAvgVal = vAvg; barAvg = bAvg
-        val (vLoad, bLoad) = addMetricRow("MOTOR YÜKÜ"); tvLoadVal = vLoad; barLoad = bLoad
+        val (vCool, bCool) = addMetricRow("SU SICAKLIĞI", "#00E5FF"); tvCoolantVal = vCool; barCoolant = bCool
+        val (vTrans, bTrans) = addMetricRow("ŞANZIMAN YAĞI", "#FFC400"); tvTransVal = vTrans; barTrans = bTrans
+        val (vInst, bInst) = addMetricRow("ANLIK TÜKETİM", "#00E676"); tvInstantVal = vInst; barInstant = bInst
+        val (vAvg, bAvg) = addMetricRow("ORTALAMA (MALİYET)", "#FF9100"); tvAvgVal = vAvg; barAvg = bAvg
+        val (vLoad, bLoad) = addMetricRow("MOTOR YÜKÜ", "#E2E8F0"); tvLoadVal = vLoad; barLoad = bLoad
 
         middleRow.addView(rightBox)
         root.addView(middleRow)
@@ -305,8 +307,8 @@ class MainActivity : Activity() {
             setPadding(0, 6, 0, 0)
         }
         fun makeBottomCard(initText: String, border: String) = TextView(this).apply {
-            text = initText; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER; background = makeCardBg(border); setPadding(10, 10, 10, 10)
+            text = initText; textSize = 14f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER; background = makeCardBg(border).apply { strokeWidth = 3 }; setPadding(12, 12, 12, 12)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(6, 0, 6, 0)
             }
@@ -326,7 +328,6 @@ class MainActivity : Activity() {
 
         val d = ObdState.latestData ?: return
 
-        // Üst LED Bar (Motor yükü ve devir kombinasyonu)
         val ecoLevel = maxOf(d.load / 100f, d.rpm / 5000f).coerceIn(0.05f, 1f)
         ledEcoBar.progress = ecoLevel
         ledEcoBar.invalidate()
@@ -348,11 +349,11 @@ class MainActivity : Activity() {
         barTrans.progress = if (t != null) ((t - 20f) / 100f).coerceIn(0f, 1f) else 0f
         barTrans.invalidate()
 
-        tvInstantVal.text = if (d.speed >= 3) "%.1f L/100km".format(d.instantL100) else "%.2f L/sa (Rölanti)".format(d.instantLh)
+        tvInstantVal.text = if (d.speed >= 3) "%.1f L/100km".format(d.instantL100) else "%.2f L/sa".format(d.instantLh)
         barInstant.progress = (if (d.speed >= 3) d.instantL100 / 20.0 else d.instantLh / 4.0).toFloat().coerceIn(0f, 1f)
         barInstant.invalidate()
 
-        tvAvgVal.text = "%.1f L/100km  (%.2f TL/km)".format(d.avgL100, d.tlPerKm)
+        tvAvgVal.text = "%.1f L  (%.2f TL)".format(d.avgL100, d.tlPerKm)
         barAvg.progress = (d.avgL100 / 18.0).toFloat().coerceIn(0f, 1f)
         barAvg.invalidate()
 
@@ -362,7 +363,7 @@ class MainActivity : Activity() {
 
         val fuelTag = if (d.isLpg) "LPG" else "BENZİN"
         tvCardVolt.text = "AKÜ: %.1f V".format(d.batteryVolt)
-        tvCardTrim.text = "TRİM: S:%+.0f  L:%+.0f".format(d.stft, d.ltft)
+        tvCardTrim.text = "TRİM: S:%+.0f L:%+.0f".format(d.stft, d.ltft)
         tvCardLpg.text = "$fuelTag | %.1f L (~%d km)".format(d.remainingLpg, d.estRangeKm)
     }
 
@@ -570,7 +571,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        addRow.addView(etAdd); addRow.addView(btnAdd)
+        addRow.addView(etAdd); btnAdd.let { addRow.addView(it) }
         rightCol.addView(addRow)
 
         cols.addView(leftCol)
